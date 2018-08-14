@@ -1,0 +1,55 @@
+There's a lot of "under the hood" work going on, but using this codebase
+comes down to three basic functions:
+
+int utf8_to_unicode(char *)
+int consume_utf8(char **)
+char *find_definition(int)
+
+The first two have to do with parsing a UTF-8 octet stream into Unicode
+codepoints. The last function finds a Han translation to English.
+
+int utf8_to_unicode(char *c);
+
+This looks at *c, derives the number of UTF-8 octets needed to complete a
+Unicode codepoint, then returns that codepoint as an integer. In addition,
+it validates both the internal structure of the current UTF-8, and also
+validates the first octet of the next UTF-8. If either validation fails,
+it returns 0xFFFD, indicating an invalid UTF-8 sequence. This represents
+immediate failure for parsing the UTF-8 sequence, and should be handled as
+an abnormal exit condition.
+
+(Note that the "shortest representation" rule is *not* enforced. For our
+purposes, other elements in the system have already taken care of that part.)
+
+int consume_utf8(char **c);
+
+This returns how many octets past c is the start of the next UTF-8. It is
+expected that utf8_to_unicode() has already validated the next UTF-8, so
+its validity is assumed. Calling this function will probably follow the form:
+
+char *ptr;
+int cp;
+...
+// get the Unicode codepoint
+cp = utf8_to_unicode(ptr);
+...
+// advance the UTF-8 pointer
+consume_utf8(&ptr);
+// then repeat as necessary
+
+And here is the whole point of the exercise:
+
+char *find_definition(int cp);
+
+Given a Unicode codepoint, we can look up its Han=>English translation
+extracted from a file in the "gucharmap" source code. It depends on a few
+conditions:
+
+-- the Unicode codepoint is in the Han region;
+-- it is actually present in the array;
+-- and it has an English translation
+
+find_definition() returns a pointer to the Unicode codepoint's description, no
+matter what. It might be an English translation of a Han character, or simply
+"LATIN SMALL LETTER A WITH TILDE", or even "COMBINING UMLAUT WITH RULES YOU
+DON'T UNDERSTAND". (That last one is a joke.)
